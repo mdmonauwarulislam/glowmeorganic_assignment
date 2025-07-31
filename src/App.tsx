@@ -2,9 +2,21 @@ import ArtTable from './components/ArtTable';
 
 function App() {
   return (
-    <main className="min-h-screen bg-gray-100 p-6">
-      <ArtTable />
-    </main>
+    <main
+    style={{
+      minHeight: '100vh',
+      backgroundColor: '#f3f4f6',
+      padding: '1.5rem',
+      width: '100%',
+      display: 'flex',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+      overflowX: 'hidden',
+    }}
+  >
+    <ArtTable />
+  </main>
+  
   );
 }
 

@@ -67,10 +67,4 @@ button:focus-visible {
   }
 }
 
-.p-paginator .p-paginator-page:focus,
-.p-paginator .p-paginator-next:focus,
-.p-paginator .p-paginator-prev:focus {
-  box-shadow: none !important;
-  outline: none !important;
-}
 

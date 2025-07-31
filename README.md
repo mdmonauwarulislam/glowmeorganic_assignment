@@ -8,7 +8,7 @@ This is a TypeScript + Vite-based React assignment that uses PrimeReact's `DataT
 
 ## Deployment
 
-**Live App:** [https://your-deployment-url.com](https://your-deployment-url.com)  
+**Live App:** [https://glowmeorganic.netlify.app/](https://glowmeorganic.netlify.app/)  
 **GitHub Repo:** [https://github.com/mdmonauwarulislam/glowmeorganic_assignment.git](https://github.com/mdmonauwarulislam/glowmeorganic_assignment.git)
 
 ---

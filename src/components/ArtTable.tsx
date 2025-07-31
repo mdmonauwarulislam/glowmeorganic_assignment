@@ -1,246 +1,147 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
+import { Button } from 'primereact/button';
 import { OverlayPanel } from 'primereact/overlaypanel';
-import { FaChevronDown } from 'react-icons/fa';
-import axios from 'axios';
+import { InputNumber } from 'primereact/inputnumber';
 import type { Apitypes, APIResponse } from '../types/apitypes';
 
 const ArtTable = () => {
   const [artworks, setArtworks] = useState<Apitypes[]>([]);
-  const [page, setPage] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const selectedArtworks = useRef(new Map<number, Apitypes>());
-  const [visibleSelected, setVisibleSelected] = useState<Apitypes[]>([]);
-  const [inputValue, setInputValue] = useState('');
+  const [selectedRows, setSelectedRows] = useState<{ [key: number]: Apitypes }>({});
+  const [loading, setLoading] = useState<boolean>(false);
+  const [page, setPage] = useState<number>(0);
+  const [rows, setRows] = useState<number>(12);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [selectCount, setSelectCount] = useState<number>(0);
   const overlayRef = useRef<OverlayPanel>(null);
+
+  const fetchData = async (pageNum: number) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`https://api.artic.edu/api/v1/artworks?page=${pageNum + 1}&limit=${rows}`);
+      const data: APIResponse = await res.json();
+      setArtworks(data.data);
+      setTotalRecords(data.pagination.total);
+    } catch (err) {
+      console.error('Fetch failed', err);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     fetchData(page);
-  }, [page]);
+  }, [page, rows]);
 
-  const fetchData = async (page: number) => {
-    setLoading(true);
-    try {
-      const res = await axios.get<APIResponse>(
-        `https://api.artic.edu/api/v1/artworks?page=${page}`
-      );
-      setArtworks(res.data.data);
-      setTotalRecords(res.data.pagination.total);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleSelectionChange = (e: any) => {
+    const updated = { ...selectedRows };
+    e.value.forEach((item: Apitypes) => {
+      updated[item.id] = item;
+    });
 
-  const onSelectionChange = (e: { value: Apitypes[] }) => {
-    const newSelections = e.value;
-    const newMap = new Map(selectedArtworks.current);
-
-    artworks.forEach((row) => {
-      if (!newSelections.some((item) => item.id === row.id)) {
-        newMap.delete(row.id);
+    Object.keys(selectedRows).forEach((id) => {
+      if (!e.value.find((item: Apitypes) => item.id.toString() === id)) {
+        delete updated[parseInt(id)];
       }
     });
 
-    newSelections.forEach((item) => {
-      newMap.set(item.id, item);
-    });
-
-    selectedArtworks.current = newMap;
-    setVisibleSelected(Array.from(newMap.values()));
+    setSelectedRows(updated);
   };
 
-  const getSelectedRows = () => {
-    return artworks.filter((art) => selectedArtworks.current.has(art.id));
-  };
+  const getSelectedRows = () =>
+    artworks.filter((item) => selectedRows[item.id]);
 
-  const selectMultiple = async (count: number) => {
-    const allSelected = new Map<number, Apitypes>();
-    let selectedCount = 0;
+  const handleAutoSelect = async () => {
+    let count = selectCount;
+    const updatedSelected: { [key: number]: Apitypes } = { ...selectedRows };
     let currentPage = 1;
 
-    while (selectedCount < count) {
-      const res = await axios.get<APIResponse>(
-        `https://api.artic.edu/api/v1/artworks?page=${currentPage}`
-      );
-      for (let art of res.data.data) {
-        if (selectedCount >= count) break;
-        allSelected.set(art.id, art);
-        selectedCount++;
+    while (count > 0) {
+      const res = await fetch(`https://api.artic.edu/api/v1/artworks?page=${currentPage}&limit=${rows}`);
+      const data: APIResponse = await res.json();
+
+      for (let item of data.data) {
+        if (!updatedSelected[item.id]) {
+          updatedSelected[item.id] = item;
+          count--;
+        }
+        if (count <= 0) break;
       }
+
+      if (data.pagination.total_pages <= currentPage) break;
       currentPage++;
     }
 
-    selectedArtworks.current = allSelected;
-    setVisibleSelected(Array.from(allSelected.values()));
-    if (page !== 1) setPage(1);
-  };
-
-  const handleOverlaySubmit = () => {
-    const number = parseInt(inputValue);
-    if (!isNaN(number) && number > 0) {
-      selectMultiple(number);
-    }
+    setSelectedRows(updatedSelected);
     overlayRef.current?.hide();
   };
 
-  const renderOverlayContent = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      <label style={{ fontSize: '14px', fontWeight: '500' }}>
-        Enter number of rows to select:
-      </label>
-      <input
-        type="number"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        placeholder="e.g., 20"
-        style={{
-          padding: '8px',
-          border: '1px solid #ccc',
-          borderRadius: '4px',
-          fontSize: '14px',
-        }}
-      />
-      <button
-        onClick={handleOverlaySubmit}
-        style={{
-          padding: '8px',
-          backgroundColor: '#22c55e',
-          color: '#fff',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontSize: '14px',
-          border: 'none',
-        }}
-      >
-        Select
-      </button>
-    </div>
-  );
-
-  const Loader = () => (
-    <div
-      style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        backgroundColor: 'white',
-        zIndex: 1000,
-      }}
-    >
-      <div
-        style={{
-          width: '48px',
-          height: '48px',
-          border: '4px dotted #22c55e',
-          borderTop: '4px solid transparent',
-          borderRadius: '50%',
-          animation: 'spin 2s linear infinite',
-        }}
-      />
-      <style>
-        {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
-      </style>
-    </div>
-  );
-
   return (
-
-        <div style={{ padding: '20px'}}>
-      <h2 style={{ fontSize: '20px', }}>Data Table</h2>
-
-      <OverlayPanel
-        ref={overlayRef}
-        showCloseIcon
-        dismissable
-        style={{ padding: '10px', boxShadow: '0 0 10px rgba(0,0,0,0.15)' }}
-      >
-        {renderOverlayContent()}
-      </OverlayPanel>
+    <div style={{ padding: '1rem' }}>
+      <h2 style={{ fontSize: '1.5rem', fontWeight: 500, marginBottom: '1rem' }}>Artworks Table</h2>
 
       {loading ? (
-        <Loader />
+        <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="p-progress-spinner p-component p-progress-spinner-circle" style={{ width: '40px', height: '40px' }}>
+            <svg viewBox="25 25 50 50" className="p-progress-spinner-svg">
+              <circle className="p-progress-spinner-circle" cx="50" cy="50" r="20" fill="none" strokeWidth="4" strokeMiterlimit="10" />
+            </svg>
+          </div>
+        </div>
       ) : (
-        <DataTable
-          value={artworks}
-          paginator
-          rows={12}
-          first={(page - 1) * 12}
-          totalRecords={totalRecords}
-          onPage={(e) => setPage((e.page ?? 0) + 1)}
-          selection={getSelectedRows()}
-          onSelectionChange={onSelectionChange}
-          selectionMode="checkbox"
-          dataKey="id"
-          lazy
-          responsiveLayout="scroll"
-          paginatorTemplate="PrevPageLink PageLinks NextPageLink"
-          pt={{
-            paginator: {
-              root: { style: { display: 'flex', justifyContent: 'center', marginTop: '20px' } },
-              pageButton: ({ context }) => ({
-                style: {
-                  padding: '6px 12px',
-                  margin: '0 4px',
-                  backgroundColor: context.active ? '#22c55e' : '#ebfcf1',
-                  color: context.active ? '#fff' : '#333',
-                  
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }
-              }),
-            }
-          }}
-        >
-          <Column selectionMode="multiple" headerStyle={{ width: '3em' }} />
-          <Column
-            field="title"
-            header={() => (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontWeight: 500 }}>Title</span>
-                <button
-                  onClick={(e) => overlayRef.current?.toggle(e)}
-                  style={{
-                    padding: '4px',
-                    borderRadius: '4px',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    outline: 'none',
-                  }}
-                  title="Select N Rows"
-                >
-                  <FaChevronDown style={{ fontSize: '14px', color: '#555' }} />
-                </button>
-                
-              </div>
-            )}
-            body={(rowData) => <span style={{ color: '#333' }}>{rowData.title}</span>}
-          />
-          <Column field="place_of_origin" header="Origin" sortable={false} body={(rowData) => rowData.place_of_origin || 'N/A'} />
-          <Column field="artist_display" header="Artist" sortable={false} body={(rowData) => rowData.artist_display || 'N/A'} />
-          <Column field="inscriptions" header="Inscriptions" sortable={false} body={(rowData) => rowData.inscriptions || 'N/A'} />
-          <Column field="date_start" header="Start Year" sortable={false} />
-          <Column field="date_end" header="End Year" sortable={false} />
-        </DataTable>
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <div><strong>Selected: {Object.keys(selectedRows).length}</strong></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>Auto Select</span>
+              <Button
+                icon="pi pi-angle-down"
+                className="p-button-sm p-button-text"
+                onClick={(e) => overlayRef.current?.toggle(e)}
+              />
+              <OverlayPanel ref={overlayRef}>
+                <div className="p-fluid">
+                  <InputNumber
+                    value={selectCount}
+                    onValueChange={(e) => setSelectCount(e.value || 0)}
+                    placeholder="Enter number"
+                  />
+                  <Button label="Submit" onClick={handleAutoSelect} className="mt-2" />
+                </div>
+              </OverlayPanel>
+            </div>
+          </div>
+
+          <DataTable
+            value={artworks}
+            paginator
+            rows={rows}
+            rowsPerPageOptions={[12, 24, 48]}
+            totalRecords={totalRecords}
+            first={page * rows}
+            onPage={(e) => {
+              setPage(Math.floor(e.first / e.rows));
+              setRows(e.rows);
+            }}
+            selectionMode="multiple"
+            selection={getSelectedRows()}
+            onSelectionChange={handleSelectionChange}
+            dataKey="id"
+            responsiveLayout="scroll"
+            emptyMessage="No data found"
+            tableStyle={{ minWidth: '60rem' }}
+          >
+            <Column selectionMode="multiple" headerStyle={{ width: '3rem' }}></Column>
+            <Column field="title" header="Title"></Column>
+            <Column field="place_of_origin" header="Origin"></Column>
+            <Column field="artist_display" header="Artist"></Column>
+            <Column field="inscriptions" header="Inscriptions"></Column>
+            <Column field="date_start" header="Start Date"></Column>
+            <Column field="date_end" header="End Date"></Column>
+          </DataTable>
+        </>
       )}
     </div>
-
-
-    
   );
 };
 

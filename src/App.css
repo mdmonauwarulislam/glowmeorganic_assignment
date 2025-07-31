@@ -1,0 +1,9 @@
+.custom-paginator {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.p-progress-spinner {
+  animation: p-progress-spinner-rotate 2s linear infinite;
+}
